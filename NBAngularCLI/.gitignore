@@ -1,0 +1,8 @@
+# BUILD
+build
+
+# IDE
+nbproject/private
+target/
+.idea
+keystore
