@@ -6,12 +6,21 @@ import org.openide.awt.StatusDisplayer;
 import org.openide.filesystems.FileChooserBuilder;
 import org.openide.util.NbBundle;
 import org.openide.util.NbPreferences;
+import org.openide.util.Utilities;
 
-final class AngularCliPanel extends javax.swing.JPanel {
+public final class AngularCliPanel extends javax.swing.JPanel {
     private static final long serialVersionUID = 1L;
-    private final AngularCliOptionsPanelController controller;
+    private final  AngularCliOptionsPanelController controller;
+    public static final String EXECUTABLE_NAME;
 
-    public static final String EXECUTABLE_NAME = "ng.cmd"; // NOI18N
+    static {
+        if (Utilities.isWindows()) {
+            EXECUTABLE_NAME= "ng.cmd"; // NOI18N
+        } else {
+            EXECUTABLE_NAME= "ng"; // NOI18N
+        }
+    }
+
     public static final String EXECUTABLE_LONG_NAME = EXECUTABLE_NAME + FileUtils.getScriptExtension(true, false);
 
     AngularCliPanel(AngularCliOptionsPanelController controller) {
