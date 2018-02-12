@@ -5,29 +5,23 @@ import java.io.File;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import javax.swing.JComponent;
 import javax.swing.event.ChangeListener;
 import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliPanel;
 import org.netbeans.api.extexecution.ExecutionDescriptor;
 import org.netbeans.api.extexecution.ExecutionService;
-import org.netbeans.api.extexecution.ExternalProcessBuilder;
 import org.netbeans.api.progress.ProgressHandle;
-import org.netbeans.api.progress.ProgressUtils;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.templates.TemplateRegistration;
 import org.openide.WizardDescriptor;
-import org.openide.awt.StatusDisplayer;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.NbPreferences;
@@ -61,8 +55,24 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
     private String[] createSteps() {
         return new String[]{
-            NbBundle.getMessage(AngularCliWizardIterator.class, "LBL_CreateProjectStep"),
-        };
+            NbBundle.getMessage(AngularCliWizardIterator.class, "LBL_CreateProjectStep"),};
+    }
+
+    private class ProcessLaunch implements Callable<Process> {
+        private final File folder;
+
+        public ProcessLaunch(File folder) {
+            this.folder = folder;
+        }
+
+        public Process call() throws Exception {
+            ProcessBuilder pb = new ProcessBuilder(NbPreferences.forModule(AngularCliPanel.class).get("ngCliExecutableLocation", ""), "new", wiz.getProperty("name").toString(), "--dir=.");
+
+            pb.directory(folder); //NOI18N
+            pb.redirectErrorStream(true);
+
+            return pb.start();
+        }
     }
 
     @Override
@@ -72,52 +82,57 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
     }
 
     @Override
-    public Set instantiate(final ProgressHandle handle) throws IOException {
-        ProgressUtils.showProgressDialogAndRun(() -> {
-            createNgCliApp(handle);
-        }, "Creating Angular CLI application...");
+    public Set instantiate(ProgressHandle handle) throws IOException {
+        createNgCliApp();
 
         return Collections.emptySet();
     }
 
-    private Process process;
+    private void createNgCliApp() {
+        Runnable runnable = new Runnable() {
+            public void run() {
+                final ProgressHandle ph = ProgressHandle.createHandle("Executing Angular CLI", () -> true);
 
-    private void createNgCliApp(final ProgressHandle handle) {
-        File dirF = FileUtil.normalizeFile((File) wiz.getProperty("projdir"));
-        dirF.mkdirs();
+                ph.setInitialDelay(0);
+                ph.start();
+                ph.progress(String.format("Creating '%s' with Angular CLI", wiz.getProperty("name")));
 
-        Callable<Process> callable = () -> {
-            String ngCli = NbPreferences.forModule(AngularCliPanel.class).get("ngCliExecutableLocation", "");
+                File dirF = FileUtil.normalizeFile((File) wiz.getProperty("projdir"));
+                dirF.mkdirs();
 
-            process = new ExternalProcessBuilder(ngCli)
-                    .addArgument(String.format("new %s", this.wiz.getProperty("name")))
-                    .workingDirectory(dirF).call();
+                ExecutionDescriptor descriptor = new ExecutionDescriptor()
+                        .controllable(true)
+                        .frontWindow(true);
 
-            return process;
+                ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(dirF),
+                        descriptor, String.format("Creating '%s' with Angular CLI", wiz.getProperty("name")));
+
+                Future<Integer> exitCode = exeService.run();
+
+                if (exitCode.isCancelled()) {
+                    ph.finish();
+                }
+
+                if (exitCode.isDone()) {
+                    ph.finish();
+
+                    FileObject dir = FileUtil.toFileObject(dirF);
+                    dir.refresh();
+
+                    Project p = FileOwnerQuery.getOwner(dir);
+                    OpenProjects.getDefault().open(new Project[]{p}, true, true);
+                }
+            }
         };
 
-        ExecutionDescriptor descriptor = new ExecutionDescriptor()
-                .frontWindow(true)
-                .inputVisible(true)
-                .postExecution(() -> {
-                    StatusDisplayer.getDefault().setStatusText("Created: " + dirF.getPath());
-                });
+        Thread thread = new Thread(runnable);
+        thread.start();
 
-        ExecutionService service = ExecutionService.newService(callable, descriptor, "Anuglar CLI");
-        Future<Integer> future = service.run();
-        try {
-            future.get();
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException ex) {
-            Exceptions.printStackTrace(ex.getCause());
-        }
-
-        FileObject dir = FileUtil.toFileObject(dirF);
-        dir.refresh();
-
-        Project p = FileOwnerQuery.getOwner(dir);
-        OpenProjects.getDefault().open(new Project[]{p}, true, true);
+//        FileObject dir = FileUtil.toFileObject(dirF);
+//        dir.refresh();
+//
+//        Project p = FileOwnerQuery.getOwner(dir);
+//        OpenProjects.getDefault().open(new Project[]{p}, true, true);
     }
 
     @Override
@@ -127,14 +142,17 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
         panels = createPanels();
         // Make sure list of steps is accurate.
         String[] steps = createSteps();
+
         for (int i = 0; i < panels.length; i++) {
             Component c = panels[i].getComponent();
+
             if (steps[i] == null) {
                 // Default step name to component name of panel.
                 // Mainly useful for getting the name of the target
                 // chooser to appear in the list of steps.
                 steps[i] = c.getName();
             }
+
             if (c instanceof JComponent) { // assume Swing components
                 JComponent jc = (JComponent) c;
                 // Step #.
