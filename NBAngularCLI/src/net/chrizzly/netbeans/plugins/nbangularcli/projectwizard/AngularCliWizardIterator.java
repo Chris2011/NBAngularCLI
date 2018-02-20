@@ -104,7 +104,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
         return new Runnable() {
             @Override
             public void run() {
-                final ProgressHandle ph = ProgressHandle.createHandle("Creating project via angular-cli ...", () -> false);
+                final ProgressHandle ph = ProgressHandle.createHandle("Creating project via angular-cli...");
 
                 try {
                     ph.start();
