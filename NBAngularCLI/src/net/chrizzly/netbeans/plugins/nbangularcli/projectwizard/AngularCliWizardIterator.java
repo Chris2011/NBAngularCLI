@@ -8,8 +8,11 @@ import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import javax.swing.JComponent;
+import javax.swing.JOptionPane;
 import javax.swing.event.ChangeListener;
 import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliPanel;
 import org.netbeans.api.extexecution.ExecutionDescriptor;
@@ -20,11 +23,14 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.templates.TemplateRegistration;
 import org.openide.WizardDescriptor;
+import org.openide.awt.NotificationDisplayer;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.NbPreferences;
+import org.openide.util.RequestProcessor;
 
 // TODO define position attribute
 @TemplateRegistration(
@@ -35,13 +41,9 @@ import org.openide.util.NbPreferences;
 )
 @Messages("AngularCliApplicaton_displayName=Angular CLI Application")
 public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstantiatingIterator {
-
     private int index;
     private WizardDescriptor.Panel[] panels;
     private WizardDescriptor wiz;
-
-    public AngularCliWizardIterator() {
-    }
 
     public static AngularCliWizardIterator createIterator() {
         return new AngularCliWizardIterator();
@@ -59,14 +61,18 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
     }
 
     private class ProcessLaunch implements Callable<Process> {
-        private final File folder;
 
-        public ProcessLaunch(File folder) {
+        private final File folder;
+        private final String projectName;
+
+        public ProcessLaunch(File folder, String projectName) {
             this.folder = folder;
+            this.projectName = projectName;
         }
 
         public Process call() throws Exception {
-            ProcessBuilder pb = new ProcessBuilder(NbPreferences.forModule(AngularCliPanel.class).get("ngCliExecutableLocation", ""), "new", wiz.getProperty("name").toString(), "--dir=.");
+            final String appPath = NbPreferences.forModule(AngularCliPanel.class).get("ngCliExecutableLocation", "");
+            ProcessBuilder pb = new ProcessBuilder(appPath, "new", projectName, "--dir=.");
 
             pb.directory(folder); //NOI18N
             pb.redirectErrorStream(true);
@@ -83,56 +89,107 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
     @Override
     public Set instantiate(ProgressHandle handle) throws IOException {
-        createNgCliApp();
+        Runnable runnable = createNgCliApp();
+
+        // execute async in separate thread
+        RequestProcessor.getDefault().post(runnable);
 
         return Collections.emptySet();
     }
 
-    private void createNgCliApp() {
-        Runnable runnable = new Runnable() {
+    private Runnable createNgCliApp() {
+        final File projectDir = FileUtil.normalizeFile((File) wiz.getProperty("projdir"));
+        final String projectName = "" + wiz.getProperty("name");
+
+        return new Runnable() {
+            @Override
             public void run() {
-                final ProgressHandle ph = ProgressHandle.createHandle("Executing Angular CLI", () -> true);
+                final ProgressHandle ph = ProgressHandle.createHandle("Creating project via angular-cli ...", () -> false);
 
-                ph.setInitialDelay(0);
-                ph.start();
-                ph.progress(String.format("Creating '%s' with Angular CLI", wiz.getProperty("name")));
+                try {
+                    ph.start();
 
-                File dirF = FileUtil.normalizeFile((File) wiz.getProperty("projdir"));
-                dirF.mkdirs();
+                    ph.progress("Creating project directory");
+                    File dirF = FileUtil.normalizeFile(projectDir);
+                    dirF.mkdirs();
 
-                ExecutionDescriptor descriptor = new ExecutionDescriptor()
-                        .controllable(true)
-                        .frontWindow(true);
+                    ExecutionDescriptor descriptor = new ExecutionDescriptor()
+                            .controllable(true)
+                            .frontWindow(true)
+                            // disable rerun
+                            .rerunCondition(new ExecutionDescriptor.RerunCondition() {
+                                @Override
+                                public void addChangeListener(ChangeListener cl) {
+                                }
 
-                ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(dirF),
-                        descriptor, String.format("Creating '%s' with Angular CLI", wiz.getProperty("name")));
+                                @Override
+                                public void removeChangeListener(ChangeListener cl) {
+                                }
 
-                Future<Integer> exitCode = exeService.run();
+                                @Override
+                                public boolean isRerunPossible() {
+                                    return false;
+                                }
+                            })
+                            // we handle the progress ourself
+                            .showProgress(false);
 
-                if (exitCode.isCancelled()) {
+                    // integrate as subtask in the same progress bar
+                    ph.progress(String.format("Executing 'ng new %s'", projectName));
+
+                    ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(projectDir, projectName),
+                            descriptor, String.format("Executing 'ng new %s'", projectName));
+                    Integer exitCode = null;
+
+                    // this will run the process
+                    Future<Integer> processFuture = exeService.run();
+                    try {
+                        // wait for end of execution of shell command
+                        exitCode = processFuture.get();
+                    } catch (InterruptedException | ExecutionException ex) {
+                        // TODO show notification, that the process was interrupted smth went wrong.d
+                        Exceptions.printStackTrace(ex);
+
+                        return;
+                    } catch (CancellationException ex) {
+                        NotificationDisplayer.getDefault().notify("Angular CLI execution was canceled", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
+
+                        return;
+                    }
+
+                    if (processFuture.isCancelled()) {
+                        JOptionPane.showMessageDialog(null, "Was canceled by user.");
+
+                        return;
+                    }
+
+                    if (exitCode != null && exitCode != 0) {
+                        NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
+
+                        return;
+                    }
+
+                    if (exitCode != null && exitCode == 0) {
+                        NotificationDisplayer.getDefault().notify(String.format("Project %s was successfully created", projectName), NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
+
+                        ph.progress("Opening project");
+
+                        FileObject dir = FileUtil.toFileObject(dirF);
+                        dir.refresh();
+                        // TODO show error and abort if generation failed (f.e. missing package.json whatever)
+
+                        Project p = FileOwnerQuery.getOwner(dir);
+                        if (null != p) {
+                            OpenProjects.getDefault().open(new Project[]{p}, true, true);
+                        } else {
+                            // TODO show error and abort if no project found (can happen when JS plugins are disabled)
+                        }
+                    }
+                } finally {
                     ph.finish();
-                }
-
-                if (exitCode.isDone()) {
-                    ph.finish();
-
-                    FileObject dir = FileUtil.toFileObject(dirF);
-                    dir.refresh();
-
-                    Project p = FileOwnerQuery.getOwner(dir);
-                    OpenProjects.getDefault().open(new Project[]{p}, true, true);
                 }
             }
         };
-
-        Thread thread = new Thread(runnable);
-        thread.start();
-
-//        FileObject dir = FileUtil.toFileObject(dirF);
-//        dir.refresh();
-//
-//        Project p = FileOwnerQuery.getOwner(dir);
-//        OpenProjects.getDefault().open(new Project[]{p}, true, true);
     }
 
     @Override
@@ -157,7 +214,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
                 JComponent jc = (JComponent) c;
                 // Step #.
                 // TODO if using org.openide.dialogs >= 7.8, can use WizardDescriptor.PROP_*:
-                jc.putClientProperty("WizardPanel_contentSelectedIndex", new Integer(i));
+                jc.putClientProperty("WizardPanel_contentSelectedIndex", i);
                 // Step name (actually the whole list for reference).
                 jc.putClientProperty("WizardPanel_contentData", steps);
             }
@@ -174,8 +231,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
     @Override
     public String name() {
-        return MessageFormat.format("{0} of {1}",
-                new Object[]{new Integer(index + 1), new Integer(panels.length)});
+        return MessageFormat.format("{0} of {1}", new Object[]{index + 1, panels.length});
     }
 
     @Override
