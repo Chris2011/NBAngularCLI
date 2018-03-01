@@ -12,7 +12,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import javax.swing.JComponent;
-import javax.swing.JOptionPane;
 import javax.swing.event.ChangeListener;
 import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliPanel;
 import org.netbeans.api.extexecution.ExecutionDescriptor;
@@ -26,7 +25,6 @@ import org.openide.WizardDescriptor;
 import org.openide.awt.NotificationDisplayer;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.NbPreferences;
@@ -41,6 +39,7 @@ import org.openide.util.RequestProcessor;
 )
 @Messages("AngularCliApplicaton_displayName=Angular CLI Application")
 public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstantiatingIterator {
+
     private int index;
     private WizardDescriptor.Panel[] panels;
     private WizardDescriptor wiz;
@@ -114,25 +113,25 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
                     dirF.mkdirs();
 
                     ExecutionDescriptor descriptor = new ExecutionDescriptor()
-                            .controllable(true)
-                            .frontWindow(true)
-                            // disable rerun
-                            .rerunCondition(new ExecutionDescriptor.RerunCondition() {
-                                @Override
-                                public void addChangeListener(ChangeListener cl) {
-                                }
+                        .controllable(true)
+                        .frontWindow(true)
+                        // disable rerun
+                        .rerunCondition(new ExecutionDescriptor.RerunCondition() {
+                            @Override
+                            public void addChangeListener(ChangeListener cl) {
+                            }
 
-                                @Override
-                                public void removeChangeListener(ChangeListener cl) {
-                                }
+                            @Override
+                            public void removeChangeListener(ChangeListener cl) {
+                            }
 
-                                @Override
-                                public boolean isRerunPossible() {
-                                    return false;
-                                }
-                            })
-                            // we handle the progress ourself
-                            .showProgress(false);
+                            @Override
+                            public boolean isRerunPossible() {
+                                return false;
+                            }
+                        })
+                        // we handle the progress ourself
+                        .showProgress(false);
 
                     // integrate as subtask in the same progress bar
                     ph.progress(String.format("Executing 'ng new %s'", projectName));
@@ -147,8 +146,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
                         // wait for end of execution of shell command
                         exitCode = processFuture.get();
                     } catch (InterruptedException | ExecutionException ex) {
-                        // TODO show notification, that the process was interrupted smth went wrong.d
-                        Exceptions.printStackTrace(ex);
+                        NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was aborted. Please see the IDE Log.", projectName), null);
 
                         return;
                     } catch (CancellationException ex) {
@@ -157,14 +155,13 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
                         return;
                     }
 
-                    if (processFuture.isCancelled()) {
-                        JOptionPane.showMessageDialog(null, "Was canceled by user.");
-
-                        return;
-                    }
-
+//                    if (processFuture.isCancelled()) {
+//                        JOptionPane.showMessageDialog(null, "Was canceled by user.");
+//
+//                        return;
+//                    }
                     if (exitCode != null && exitCode != 0) {
-                        NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
+                        NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was aborted. Please see the IDE Log.", projectName), null);
 
                         return;
                     }
