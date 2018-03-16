@@ -1,19 +1,36 @@
 package net.chrizzly.netbeans.plugins.nbangularcli.projectwizard;
 
+import java.awt.Cursor;
 import java.io.File;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.prefs.PreferenceChangeEvent;
+import java.util.prefs.PreferenceChangeListener;
 import javax.swing.JFileChooser;
 import javax.swing.JPanel;
+import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
+import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliOptions;
+import net.chrizzly.netbeans.plugins.nbangularcli.ui.options.AngularCliOptionsPanel;
+import net.chrizzly.netbeans.plugins.nbangularcli.ui.options.AngularCliOptionsPanelController;
+import net.chrizzly.netbeans.plugins.nbangularcli.validator.AngularCliOptionsValidator;
+import net.chrizzly.netbeans.plugins.nbangularcli.validator.ValidationResult;
+import org.netbeans.api.options.OptionsDisplayer;
 import org.netbeans.spi.project.ui.support.ProjectChooser;
 import org.openide.WizardDescriptor;
 import org.openide.WizardValidationException;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.ChangeSupport;
+import org.openide.util.NbPreferences;
 
-public class AngularCliLocationPanelVisual extends JPanel implements DocumentListener {
+public final class AngularCliLocationPanelVisual extends JPanel implements DocumentListener, PreferenceChangeListener {
     public static final String PROP_PROJECT_NAME = "projectName";
     private static final long serialVersionUID = 1L;
+
+    private final ChangeSupport changeSupport = new ChangeSupport(this);
+
+    private final AtomicInteger listenerCount = new AtomicInteger();
 
     private AngularCliLocationPanel panel;
 
@@ -44,6 +61,7 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
         browseButton = new javax.swing.JButton();
         createdFolderLabel = new javax.swing.JLabel();
         createdFolderTextField = new javax.swing.JTextField();
+        optionsLabel = new javax.swing.JLabel();
 
         projectNameLabel.setLabelFor(projectNameTextField);
         org.openide.awt.Mnemonics.setLocalizedText(projectNameLabel, org.openide.util.NbBundle.getMessage(AngularCliLocationPanelVisual.class, "AngularCliLocationPanelVisual.projectNameLabel.text")); // NOI18N
@@ -64,6 +82,16 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
 
         createdFolderTextField.setEditable(false);
 
+        org.openide.awt.Mnemonics.setLocalizedText(optionsLabel, org.openide.util.NbBundle.getMessage(AngularCliLocationPanelVisual.class, "AngularCliLocationPanelVisual.optionsLabel.text")); // NOI18N
+        optionsLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                optionsLabelMouseEntered(evt);
+            }
+            public void mousePressed(java.awt.event.MouseEvent evt) {
+                optionsLabelMousePressed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
@@ -71,16 +99,21 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(projectNameLabel)
-                    .addComponent(projectLocationLabel)
-                    .addComponent(createdFolderLabel))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(projectNameTextField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 191, Short.MAX_VALUE)
-                    .addComponent(projectLocationTextField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 191, Short.MAX_VALUE)
-                    .addComponent(createdFolderTextField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 191, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(browseButton)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(projectNameLabel)
+                            .addComponent(projectLocationLabel)
+                            .addComponent(createdFolderLabel))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(projectNameTextField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 191, Short.MAX_VALUE)
+                            .addComponent(projectLocationTextField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 191, Short.MAX_VALUE)
+                            .addComponent(createdFolderTextField, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 191, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(browseButton))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(optionsLabel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -99,7 +132,9 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(createdFolderLabel)
                     .addComponent(createdFolderTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(213, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(optionsLabel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(191, Short.MAX_VALUE))
         );
     }// </editor-fold>//GEN-END:initComponents
 
@@ -121,15 +156,24 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
                 File projectDir = chooser.getSelectedFile();
                 projectLocationTextField.setText(FileUtil.normalizeFile(projectDir).getAbsolutePath());
             }
-            panel.fireChangeEvent();
+//            panel.fireChangeEvent();
         }
 
     }//GEN-LAST:event_browseButtonActionPerformed
+
+    private void optionsLabelMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_optionsLabelMousePressed
+        OptionsDisplayer.getDefault().open(AngularCliOptionsPanelController.OPTIONS_PATH);
+    }//GEN-LAST:event_optionsLabelMousePressed
+
+    private void optionsLabelMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_optionsLabelMouseEntered
+        evt.getComponent().setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    }//GEN-LAST:event_optionsLabelMouseEntered
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton browseButton;
     private javax.swing.JLabel createdFolderLabel;
     private javax.swing.JTextField createdFolderTextField;
+    private javax.swing.JLabel optionsLabel;
     private javax.swing.JLabel projectLocationLabel;
     private javax.swing.JTextField projectLocationTextField;
     private javax.swing.JLabel projectNameLabel;
@@ -186,6 +230,19 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
         return true;
     }
 
+    String getErrorMessage() {
+        ValidationResult result = new AngularCliOptionsValidator()
+                .validateAngularCli()
+                .getResult();
+        if (result.isFaultless()) {
+            return null;
+        }
+        if (result.hasErrors()) {
+            return result.getFirstErrorMessage();
+        }
+        return result.getFirstWarningMessage();
+    }
+
     void store(WizardDescriptor d) {
         String name = projectNameTextField.getText().trim();
         String folder = createdFolderTextField.getText().trim();
@@ -237,6 +294,26 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
         }
     }
 
+    void addChangeListener(ChangeListener listener) {
+        if (listenerCount.getAndIncrement() == 0) {
+            AngularCliOptions.getInstance().addPreferenceChangeListener(this);
+        }
+
+        changeSupport.addChangeListener(listener);
+    }
+
+    void removeChangeListener(ChangeListener listener) {
+        if (listenerCount.decrementAndGet() == 0) {
+            AngularCliOptions.getInstance().removePreferenceChangeListener(this);
+        }
+
+        changeSupport.removeChangeListener(listener);
+    }
+
+    void fireChange() {
+        changeSupport.fireChange();
+    }
+
     /**
      * Handles changes in the Project name and project directory,
      */
@@ -255,7 +332,11 @@ public class AngularCliLocationPanelVisual extends JPanel implements DocumentLis
             //}
 
         }
-        panel.fireChangeEvent(); // Notify that the panel changed
+//        panel.fireChangeEvent(); // Notify that the panel changed
     }
 
+    @Override
+    public void preferenceChange(PreferenceChangeEvent evt) {
+        fireChange();
+    }
 }

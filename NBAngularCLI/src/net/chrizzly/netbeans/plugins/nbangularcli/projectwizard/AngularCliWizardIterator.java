@@ -13,7 +13,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import javax.swing.JComponent;
 import javax.swing.event.ChangeListener;
-import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliPanel;
+import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliOptions;
+import net.chrizzly.netbeans.plugins.nbangularcli.ui.options.AngularCliOptionsPanel;
 import org.netbeans.api.extexecution.ExecutionDescriptor;
 import org.netbeans.api.extexecution.ExecutionService;
 import org.netbeans.api.progress.ProgressHandle;
@@ -38,7 +39,7 @@ import org.openide.util.RequestProcessor;
         iconBase = "net/chrizzly/netbeans/plugins/nbangularcli/projectwizard/angular.png"
 )
 @Messages("AngularCliApplicaton_displayName=Angular CLI Application")
-public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstantiatingIterator {
+public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstantiatingIterator<WizardDescriptor> {
 
     private int index;
     private WizardDescriptor.Panel[] panels;
@@ -69,9 +70,13 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
             this.projectName = projectName;
         }
 
+        @Override
         public Process call() throws Exception {
-            final String appPath = NbPreferences.forModule(AngularCliPanel.class).get("ngCliExecutableLocation", "");
+//            final String appPath = NbPreferences.forModule(AngularCliOptionsPanel.class).get("ngCliExecutableLocation", "");
+            final String appPath = AngularCliOptions.getInstance().getAngularCli();
             ProcessBuilder pb = new ProcessBuilder(appPath, "new", projectName, "--dir=.");
+
+            System.out.println(appPath);
 
             pb.directory(folder); //NOI18N
             pb.redirectErrorStream(true);

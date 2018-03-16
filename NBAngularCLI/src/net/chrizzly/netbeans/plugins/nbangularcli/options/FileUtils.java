@@ -22,6 +22,8 @@ public final class FileUtils {
 
     private static final boolean IS_WINDOWS = Utilities.isWindows();
 
+    public static final File TMP_DIR = new File(System.getProperty("java.io.tmpdir")); // NOI18N
+
     private FileUtils() {
     }
 
