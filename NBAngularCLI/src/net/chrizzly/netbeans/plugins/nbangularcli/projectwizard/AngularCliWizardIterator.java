@@ -76,8 +76,6 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
             final String appPath = AngularCliOptions.getInstance().getAngularCli();
             ProcessBuilder pb = new ProcessBuilder(appPath, "new", projectName, "--dir=.");
 
-            System.out.println(appPath);
-
             pb.directory(folder); //NOI18N
             pb.redirectErrorStream(true);
 

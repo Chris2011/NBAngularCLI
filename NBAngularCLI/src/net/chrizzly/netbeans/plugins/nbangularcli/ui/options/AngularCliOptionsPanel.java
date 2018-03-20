@@ -15,7 +15,6 @@ import org.openide.awt.StatusDisplayer;
 import org.openide.filesystems.FileChooserBuilder;
 import org.openide.util.ChangeSupport;
 import org.openide.util.NbBundle;
-import org.openide.util.NbPreferences;
 
 @OptionsPanelController.Keywords(keywords = {"#KW.AngularCliOptionsPanel"}, location = "Html5", tabTitle = "AngularCLI")
 public final class AngularCliOptionsPanel extends JPanel implements ChangeListener{
@@ -37,8 +36,6 @@ public final class AngularCliOptionsPanel extends JPanel implements ChangeListen
 
     public static AngularCliOptionsPanel create() {
         AngularCliOptionsPanel panel = new AngularCliOptionsPanel();
-
-//        panel.addChangeListener(t);
 
         return panel;
     }

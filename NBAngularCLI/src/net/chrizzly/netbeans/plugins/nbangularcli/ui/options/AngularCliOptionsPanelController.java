@@ -44,7 +44,6 @@ public final class AngularCliOptionsPanelController extends OptionsPanelControll
 
     @Override
     public void applyChanges() {
-        System.out.println("Test apply");
         EventQueue.invokeLater(() -> {
             getAngularCliOptions().setAngularCli(getAngularCliOptionsPanel().getAngularCli());
 
