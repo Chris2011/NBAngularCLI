@@ -28,6 +28,7 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.RequestProcessor;
+import org.openide.windows.InputOutput;
 
 // TODO define position attribute
 @TemplateRegistration(
@@ -128,11 +129,11 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
                             @Override
                             public boolean isRerunPossible() {
-                                return false;
+                                return true;
                             }
                         })
                         // we handle the progress ourself
-                        .showProgress(false);
+                        .showProgress(true);
 
                 // integrate as subtask in the same progress bar
                 ph.progress(String.format("Executing 'ng new %s'", projectName));
