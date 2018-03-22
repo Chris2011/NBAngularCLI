@@ -1,3 +1,7 @@
+<a href="https://travis-ci.org/Chris2011/NBAngularCLI">
+    <img src="https://api.travis-ci.org/Chris2011/NBAngularCLI.svg?branch=develop" />
+</a>
+
 # NBAngularCLI
 Create Angular-CLI projects within NetBeans
 
