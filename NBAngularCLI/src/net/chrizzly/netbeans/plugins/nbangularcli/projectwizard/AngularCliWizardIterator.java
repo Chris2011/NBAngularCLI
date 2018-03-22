@@ -14,7 +14,6 @@ import java.util.concurrent.Future;
 import javax.swing.JComponent;
 import javax.swing.event.ChangeListener;
 import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliOptions;
-import net.chrizzly.netbeans.plugins.nbangularcli.ui.options.AngularCliOptionsPanel;
 import org.netbeans.api.extexecution.ExecutionDescriptor;
 import org.netbeans.api.extexecution.ExecutionService;
 import org.netbeans.api.progress.ProgressHandle;
@@ -28,7 +27,6 @@ import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
-import org.openide.util.NbPreferences;
 import org.openide.util.RequestProcessor;
 
 // TODO define position attribute
@@ -42,14 +40,14 @@ import org.openide.util.RequestProcessor;
 public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstantiatingIterator<WizardDescriptor> {
 
     private int index;
-    private WizardDescriptor.Panel[] panels;
+    private WizardDescriptor.Panel<WizardDescriptor>[] panels;
     private WizardDescriptor wiz;
 
     public static AngularCliWizardIterator createIterator() {
         return new AngularCliWizardIterator();
     }
 
-    private WizardDescriptor.Panel[] createPanels() {
+    private WizardDescriptor.Panel<WizardDescriptor>[] createPanels() {
         return new WizardDescriptor.Panel[]{
             new AngularCliLocationPanel()
         };
@@ -72,9 +70,10 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
         @Override
         public Process call() throws Exception {
-//            final String appPath = NbPreferences.forModule(AngularCliOptionsPanel.class).get("ngCliExecutableLocation", "");
             final String appPath = AngularCliOptions.getInstance().getAngularCli();
             ProcessBuilder pb = new ProcessBuilder(appPath, "new", projectName, "--dir=.");
+
+            System.out.println(String.format("\"%s\" new %s --dir=. \"%s\"", appPath, projectName, folder));
 
             pb.directory(folder); //NOI18N
             pb.redirectErrorStream(true);
@@ -84,13 +83,14 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
     }
 
     @Override
-    public Set instantiate() throws IOException {
+    public Set<FileObject> instantiate() throws IOException {
         assert false : "Cannot call this method if implements WizardDescriptor.ProgressInstantiatingIterator.";
+
         return null;
     }
 
     @Override
-    public Set instantiate(ProgressHandle handle) throws IOException {
+    public Set<FileObject> instantiate(ProgressHandle handle) throws IOException {
         Runnable runnable = createNgCliApp();
 
         // execute async in separate thread
@@ -103,19 +103,17 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
         final File projectDir = FileUtil.normalizeFile((File) wiz.getProperty("projdir"));
         final String projectName = "" + wiz.getProperty("name");
 
-        return new Runnable() {
-            @Override
-            public void run() {
-                final ProgressHandle ph = ProgressHandle.createHandle("Creating project via angular-cli...");
+        return () -> {
+            final ProgressHandle ph = ProgressHandle.createHandle("Creating project via angular-cli...");
 
-                try {
-                    ph.start();
+            try {
+                ph.start();
 
-                    ph.progress("Creating project directory");
-                    File dirF = FileUtil.normalizeFile(projectDir);
-                    dirF.mkdirs();
+                ph.progress("Creating project directory");
+                File dirF = FileUtil.normalizeFile(projectDir);
+                dirF.mkdirs();
 
-                    ExecutionDescriptor descriptor = new ExecutionDescriptor()
+                ExecutionDescriptor descriptor = new ExecutionDescriptor()
                         .controllable(true)
                         .frontWindow(true)
                         // disable rerun
@@ -136,58 +134,54 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
                         // we handle the progress ourself
                         .showProgress(false);
 
-                    // integrate as subtask in the same progress bar
-                    ph.progress(String.format("Executing 'ng new %s'", projectName));
+                // integrate as subtask in the same progress bar
+                ph.progress(String.format("Executing 'ng new %s'", projectName));
 
-                    ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(projectDir, projectName),
-                            descriptor, String.format("Executing 'ng new %s'", projectName));
-                    Integer exitCode = null;
+                ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(projectDir, projectName),
+                        descriptor, String.format("Executing 'ng new %s'", projectName));
+                Integer exitCode = null;
 
-                    // this will run the process
-                    Future<Integer> processFuture = exeService.run();
-                    try {
-                        // wait for end of execution of shell command
-                        exitCode = processFuture.get();
-                    } catch (InterruptedException | ExecutionException ex) {
-                        NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was aborted. Please see the IDE Log.", projectName), null);
+                // this will run the process
+                Future<Integer> processFuture = exeService.run();
 
-                        return;
-                    } catch (CancellationException ex) {
-                        NotificationDisplayer.getDefault().notify("Angular CLI execution was canceled", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
+                try {
+                    // wait for end of execution of shell command
+                    exitCode = processFuture.get();
+                } catch (InterruptedException | ExecutionException ex) {
+                    NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was aborted. Please see the IDE Log.", projectName), null);
 
-                        return;
-                    }
+                    return;
+                } catch (CancellationException ex) {
+                    NotificationDisplayer.getDefault().notify("Angular CLI execution was canceled", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
 
-//                    if (processFuture.isCancelled()) {
-//                        JOptionPane.showMessageDialog(null, "Was canceled by user.");
-//
-//                        return;
-//                    }
-                    if (exitCode != null && exitCode != 0) {
-                        NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was aborted. Please see the IDE Log.", projectName), null);
-
-                        return;
-                    }
-
-                    if (exitCode != null && exitCode == 0) {
-                        NotificationDisplayer.getDefault().notify(String.format("Project %s was successfully created", projectName), NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
-
-                        ph.progress("Opening project");
-
-                        FileObject dir = FileUtil.toFileObject(dirF);
-                        dir.refresh();
-                        // TODO show error and abort if generation failed (f.e. missing package.json whatever)
-
-                        Project p = FileOwnerQuery.getOwner(dir);
-                        if (null != p) {
-                            OpenProjects.getDefault().open(new Project[]{p}, true, true);
-                        } else {
-                            // TODO show error and abort if no project found (can happen when JS plugins are disabled)
-                        }
-                    }
-                } finally {
-                    ph.finish();
+                    return;
                 }
+
+                if (exitCode != null && exitCode != 0) {
+                    NotificationDisplayer.getDefault().notify("Angular CLI execution was aborted", NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was aborted. Please see the IDE Log.", projectName), null);
+
+                    return;
+                }
+
+                if (exitCode != null && exitCode == 0) {
+                    NotificationDisplayer.getDefault().notify(String.format("Project %s was successfully created", projectName), NotificationDisplayer.Priority.HIGH.getIcon(), String.format("The execution of 'ng new %s' was canceled by the user.", projectName), null);
+
+                    ph.progress("Opening project");
+
+                    FileObject dir = FileUtil.toFileObject(dirF);
+                    dir.refresh();
+                    // TODO show error and abort if generation failed (f.e. missing package.json whatever)
+
+                    Project p = FileOwnerQuery.getOwner(dir);
+
+                    if (null != p) {
+                        OpenProjects.getDefault().open(new Project[]{p}, true, true);
+                    } else {
+                        // TODO show error and abort if no project found (can happen when JS plugins are disabled)
+                    }
+                }
+            } finally {
+                ph.finish();
             }
         };
     }
@@ -249,6 +243,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
+
         index++;
     }
 
@@ -257,11 +252,12 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
         if (!hasPrevious()) {
             throw new NoSuchElementException();
         }
+
         index--;
     }
 
     @Override
-    public WizardDescriptor.Panel current() {
+    public WizardDescriptor.Panel<WizardDescriptor> current() {
         return panels[index];
     }
 
