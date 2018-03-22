@@ -110,7 +110,6 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
             try {
                 ph.start();
 
-                ph.progress("Creating project directory");
                 File dirF = FileUtil.normalizeFile(projectDir);
                 dirF.mkdirs();
 
@@ -129,11 +128,11 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
                             @Override
                             public boolean isRerunPossible() {
-                                return true;
+                                return false;
                             }
                         })
                         // we handle the progress ourself
-                        .showProgress(true);
+                        .showProgress(false);
 
                 // integrate as subtask in the same progress bar
                 ph.progress(String.format("Executing 'ng new %s'", projectName));
