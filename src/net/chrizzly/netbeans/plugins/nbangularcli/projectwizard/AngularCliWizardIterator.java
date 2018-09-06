@@ -72,9 +72,9 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
         @Override
         public Process call() throws Exception {
             final String appPath = AngularCliOptions.getInstance().getAngularCli();
-            ProcessBuilder pb = new ProcessBuilder(appPath, "new", projectName, "--dir=.");
+            ProcessBuilder pb = new ProcessBuilder(appPath, "new", projectName);
 
-            System.out.println(String.format("\"%s\" new %s --dir=. \"%s\"", appPath, projectName, folder));
+            System.out.println(String.format("Execute \"%s\" new %s in \"%s\"", appPath, projectName, folder));
 
             pb.directory(folder); //NOI18N
             pb.redirectErrorStream(true);
@@ -101,6 +101,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
     }
 
     private Runnable createNgCliApp() {
+        final File parentLocataion = FileUtil.normalizeFile((File) wiz.getProperty("parentLocation"));
         final File projectDir = FileUtil.normalizeFile((File) wiz.getProperty("projdir"));
         final String projectName = "" + wiz.getProperty("name");
 
@@ -110,8 +111,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
             try {
                 ph.start();
 
-                File dirF = FileUtil.normalizeFile(projectDir);
-                dirF.mkdirs();
+                File dirF = FileUtil.normalizeFile(parentLocataion);
 
                 ExecutionDescriptor descriptor = new ExecutionDescriptor()
                         .controllable(true)
@@ -137,7 +137,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
                 // integrate as subtask in the same progress bar
                 ph.progress(String.format("Executing 'ng new %s'", projectName));
 
-                ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(projectDir, projectName),
+                ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(parentLocataion, projectName),
                         descriptor, String.format("Executing 'ng new %s'", projectName));
                 Integer exitCode = null;
 
@@ -168,7 +168,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
                     ph.progress("Opening project");
 
-                    FileObject dir = FileUtil.toFileObject(dirF);
+                    FileObject dir = FileUtil.toFileObject(projectDir);
                     dir.refresh();
                     // TODO show error and abort if generation failed (f.e. missing package.json whatever)
 

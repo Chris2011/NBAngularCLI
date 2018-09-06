@@ -195,8 +195,8 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
                     "Project Name is not a valid folder name.");
             return false; // Display name not specified
         }
-        File f = FileUtil.normalizeFile(new File(projectLocationTextField.getText()).getAbsoluteFile());
-        if (!f.isDirectory()) {
+        File parentFolder = FileUtil.normalizeFile(new File(projectLocationTextField.getText()).getAbsoluteFile());
+        if (!parentFolder.isDirectory()) {
             String message = "Project Folder is not a valid path.";
             wizardDescriptor.putProperty("WizardPanel_errorMessage", message);
             return false;
@@ -245,10 +245,12 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
 
     void store(WizardDescriptor d) {
         String name = projectNameTextField.getText().trim();
+        String parentLocation = projectLocationTextField.getText().trim();
         String folder = createdFolderTextField.getText().trim();
 
-        d.putProperty("projdir", new File(folder));
         d.putProperty("name", name);
+        d.putProperty("parentLocation", new File(parentLocation));
+        d.putProperty("projdir", new File(folder));
     }
 
     void read(WizardDescriptor settings) {
