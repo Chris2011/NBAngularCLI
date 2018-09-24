@@ -28,7 +28,6 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.RequestProcessor;
-import org.openide.windows.InputOutput;
 
 // TODO define position attribute
 @TemplateRegistration(

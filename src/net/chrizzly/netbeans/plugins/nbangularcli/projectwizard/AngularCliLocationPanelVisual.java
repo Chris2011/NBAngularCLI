@@ -12,7 +12,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
 import net.chrizzly.netbeans.plugins.nbangularcli.options.AngularCliOptions;
-import net.chrizzly.netbeans.plugins.nbangularcli.ui.options.AngularCliOptionsPanel;
 import net.chrizzly.netbeans.plugins.nbangularcli.ui.options.AngularCliOptionsPanelController;
 import net.chrizzly.netbeans.plugins.nbangularcli.validator.AngularCliOptionsValidator;
 import net.chrizzly.netbeans.plugins.nbangularcli.validator.ValidationResult;
@@ -22,7 +21,6 @@ import org.openide.WizardDescriptor;
 import org.openide.WizardValidationException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.ChangeSupport;
-import org.openide.util.NbPreferences;
 
 public final class AngularCliLocationPanelVisual extends JPanel implements DocumentListener, PreferenceChangeListener {
     public static final String PROP_PROJECT_NAME = "projectName";
