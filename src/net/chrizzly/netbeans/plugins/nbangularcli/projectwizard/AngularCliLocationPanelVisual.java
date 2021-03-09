@@ -23,14 +23,11 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.ChangeSupport;
 
 public final class AngularCliLocationPanelVisual extends JPanel implements DocumentListener, PreferenceChangeListener {
-    public static final String PROP_PROJECT_NAME = "projectName";
-    private static final long serialVersionUID = 1L;
-
     private final ChangeSupport changeSupport = new ChangeSupport(this);
-
     private final AtomicInteger listenerCount = new AtomicInteger();
-
     private AngularCliLocationPanel panel;
+
+    public static final String PROP_PROJECT_NAME = "projectName";
 
     public AngularCliLocationPanelVisual(AngularCliLocationPanel panel) {
         initComponents();
@@ -154,7 +151,7 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
                 File projectDir = chooser.getSelectedFile();
                 projectLocationTextField.setText(FileUtil.normalizeFile(projectDir).getAbsolutePath());
             }
-//            panel.fireChangeEvent();
+            panel.fireChangeEvent();
         }
 
     }//GEN-LAST:event_browseButtonActionPerformed
@@ -186,59 +183,72 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
     }
 
     boolean valid(WizardDescriptor wizardDescriptor) {
+        // HINT: Validate, whether the Angular CLI was selected inside of the options or not.
+        ValidationResult result = new AngularCliOptionsValidator()
+                .validateAngularCli()
+                .getResult();
+
+        if (result.hasErrors()) {
+            wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE, result.getFirstErrorMessage());
+
+            return false;
+        }
+
+        if (result.hasWarnings()) {
+            wizardDescriptor.putProperty(WizardDescriptor.PROP_WARNING_MESSAGE, result.getFirstWarningMessage());
+
+            return false;
+        }
 
         if (projectNameTextField.getText().length() == 0) {
             // TODO if using org.openide.dialogs >= 7.8, can use WizardDescriptor.PROP_ERROR_MESSAGE:
-            wizardDescriptor.putProperty("WizardPanel_errorMessage",
+            wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE,
                     "Project Name is not a valid folder name.");
+
             return false; // Display name not specified
         }
+
         File parentFolder = FileUtil.normalizeFile(new File(projectLocationTextField.getText()).getAbsoluteFile());
         if (!parentFolder.isDirectory()) {
             String message = "Project Folder is not a valid path.";
-            wizardDescriptor.putProperty("WizardPanel_errorMessage", message);
+            wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE, message);
+
             return false;
         }
+
         final File destFolder = FileUtil.normalizeFile(new File(createdFolderTextField.getText()).getAbsoluteFile());
 
         File projLoc = destFolder;
         while (projLoc != null && !projLoc.exists()) {
             projLoc = projLoc.getParentFile();
         }
+
         if (projLoc == null || !projLoc.canWrite()) {
-            wizardDescriptor.putProperty("WizardPanel_errorMessage",
+            wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE,
                     "Project Folder cannot be created.");
+
             return false;
         }
 
         if (FileUtil.toFileObject(projLoc) == null) {
             String message = "Project Folder is not a valid path.";
-            wizardDescriptor.putProperty("WizardPanel_errorMessage", message);
+            wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE, message);
+
             return false;
         }
 
         File[] kids = destFolder.listFiles();
         if (destFolder.exists() && kids != null && kids.length > 0) {
             // Folder exists and is not empty
-            wizardDescriptor.putProperty("WizardPanel_errorMessage",
+            wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE,
                     "Project Folder already exists and is not empty.");
+
             return false;
         }
-        wizardDescriptor.putProperty("WizardPanel_errorMessage", "");
-        return true;
-    }
 
-    String getErrorMessage() {
-        ValidationResult result = new AngularCliOptionsValidator()
-                .validateAngularCli()
-                .getResult();
-        if (result.isFaultless()) {
-            return null;
-        }
-        if (result.hasErrors()) {
-            return result.getFirstErrorMessage();
-        }
-        return result.getFirstWarningMessage();
+        wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE, "");
+
+        return true;
     }
 
     void store(WizardDescriptor d) {
@@ -258,12 +268,14 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
         } else {
             projectLocation = projectLocation.getParentFile();
         }
+
         this.projectLocationTextField.setText(projectLocation.getAbsolutePath());
 
         String projectName = (String) settings.getProperty("name");
         if (projectName == null) {
             projectName = "AngularCliApplicaton";
         }
+
         this.projectNameTextField.setText(projectName);
         this.projectNameTextField.selectAll();
     }
@@ -273,6 +285,7 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
     }
 
     // Implementation of DocumentListener --------------------------------------
+    @Override
     public void changedUpdate(DocumentEvent e) {
         updateTexts(e);
         if (this.projectNameTextField.getDocument() == e.getDocument()) {
@@ -280,6 +293,7 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
         }
     }
 
+    @Override
     public void insertUpdate(DocumentEvent e) {
         updateTexts(e);
         if (this.projectNameTextField.getDocument() == e.getDocument()) {
@@ -287,6 +301,7 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
         }
     }
 
+    @Override
     public void removeUpdate(DocumentEvent e) {
         updateTexts(e);
         if (this.projectNameTextField.getDocument() == e.getDocument()) {
@@ -318,7 +333,6 @@ public final class AngularCliLocationPanelVisual extends JPanel implements Docum
      * Handles changes in the Project name and project directory,
      */
     private void updateTexts(DocumentEvent e) {
-
         Document doc = e.getDocument();
 
         if (doc == projectNameTextField.getDocument() || doc == projectLocationTextField.getDocument()) {

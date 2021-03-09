@@ -1,7 +1,11 @@
 package net.chrizzly.netbeans.plugins.nbangularcli.projectwizard;
 
+import java.util.HashSet;
+import java.util.Set;
+import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import org.openide.WizardDescriptor;
+import org.openide.WizardDescriptor.FinishablePanel;
 import org.openide.util.HelpCtx;
 import org.openide.util.NbBundle;
 
@@ -10,14 +14,26 @@ import org.openide.util.NbBundle;
  */
 //public class AngularCliLocationPanel implements WizardDescriptor.Panel,
 //        WizardDescriptor.ValidatingPanel, WizardDescriptor.FinishablePanel {
-public class AngularCliLocationPanel implements WizardDescriptor.FinishablePanel<WizardDescriptor> {
-
+public class AngularCliLocationPanel implements FinishablePanel<WizardDescriptor> {
     private WizardDescriptor wizardDescriptor;
     private AngularCliLocationPanelVisual angularCliPanelVisual;
 
     @Override
     public boolean isFinishPanel() {
         return true;
+    }
+    
+    private final Set<ChangeListener> listeners = new HashSet<>(1); // or can use ChangeSupport in NB 6.0
+    
+    protected final void fireChangeEvent() {
+        Set<ChangeListener> ls;
+        synchronized (listeners) {
+            ls = new HashSet<>(listeners);
+        }
+        ChangeEvent ev = new ChangeEvent(this);
+        ls.forEach((l) -> {
+            l.stateChanged(ev);
+        });
     }
 
     @Override
@@ -52,19 +68,9 @@ public class AngularCliLocationPanel implements WizardDescriptor.FinishablePanel
 
     @Override
     public boolean isValid() {
-        // error
-        String error = getComponent().getErrorMessage();
-
-        if (hasText(error)) {
-            setErrorMessage(error);
-
-            return false;
-        }
-
-        // everything ok
-        setErrorMessage(""); // NOI18N
-
-        return true;
+        getComponent();
+        
+        return angularCliPanelVisual.valid(wizardDescriptor);
     }
 
     @Override
@@ -75,9 +81,5 @@ public class AngularCliLocationPanel implements WizardDescriptor.FinishablePanel
     @Override
     public void removeChangeListener(ChangeListener listener) {
         getComponent().removeChangeListener(listener);
-    }
-
-    private void setErrorMessage(String message) {
-        wizardDescriptor.putProperty(WizardDescriptor.PROP_ERROR_MESSAGE, message);
     }
 }

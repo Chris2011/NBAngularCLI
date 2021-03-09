@@ -77,6 +77,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
 
             pb.directory(folder); //NOI18N
             pb.redirectErrorStream(true);
+//            pb.redirectOutput(ProcessBuilder.Redirect.)
 
             return pb.start();
         }
@@ -100,7 +101,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
     }
 
     private Runnable createNgCliApp() {
-        final File parentLocataion = FileUtil.normalizeFile((File) wiz.getProperty("parentLocation"));
+        final File parentLocation = FileUtil.normalizeFile((File) wiz.getProperty("parentLocation"));
         final File projectDir = FileUtil.normalizeFile((File) wiz.getProperty("projdir"));
         final String projectName = "" + wiz.getProperty("name");
 
@@ -110,7 +111,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
             try {
                 ph.start();
 
-                File dirF = FileUtil.normalizeFile(parentLocataion);
+//                File dirF = FileUtil.normalizeFile(parentLocation);
 
                 ExecutionDescriptor descriptor = new ExecutionDescriptor()
                         .controllable(true)
@@ -136,7 +137,7 @@ public class AngularCliWizardIterator implements WizardDescriptor.ProgressInstan
                 // integrate as subtask in the same progress bar
                 ph.progress(String.format("Executing 'ng new %s'", projectName));
 
-                ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(parentLocataion, projectName),
+                ExecutionService exeService = ExecutionService.newService(new ProcessLaunch(parentLocation, projectName),
                         descriptor, String.format("Executing 'ng new %s'", projectName));
                 Integer exitCode = null;
 

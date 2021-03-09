@@ -3,5 +3,5 @@ AutoUpdate-Show-In-Client: true
 OpenIDE-Module: net.chrizzly.netbeans.plugins.nbangularcli/1
 OpenIDE-Module-Localizing-Bundle: net/chrizzly/netbeans/plugins/nbangularcli/Bundle.properties
 OpenIDE-Module-Requires: org.netbeans.modules.web.clientproject
-OpenIDE-Module-Specification-Version: 1.0.1
+OpenIDE-Module-Specification-Version: 1.1.0
 
